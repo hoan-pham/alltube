@@ -393,4 +393,25 @@ class VideoDownloadTest extends \PHPUnit_Framework_TestCase
         $video = $this->download->getJSON($url, $format);
         $this->download->getM3uStream($video);
     }
+
+    /**
+     * Test addProxy function.
+     *
+     * @return void
+     */
+    public function testAddProxy()
+    {
+        $this->download->addProxy('fr');
+    }
+
+    /**
+     * Test addProxy function with an invalid country code.
+     *
+     * @return void
+     * @expectedException Exception
+     */
+    public function testAddProxyWithInvalidCountry()
+    {
+        $this->download->addProxy('foo');
+    }
 }

@@ -6,6 +6,7 @@
 namespace Alltube;
 
 use Chain\Chain;
+use Symfony\Component\Process\Process;
 use Symfony\Component\Process\ProcessBuilder;
 
 /**
@@ -43,12 +44,53 @@ class VideoDownload
         } elseif (!is_file($this->config->python)) {
             throw new \Exception("Can't find Python at ".$this->config->python);
         }
+        $this->prefix = array_merge(
+            [$this->config->python, $this->config->youtubedl],
+            $this->config->params
+        );
+        $this->procBuilder->setPrefix($this->prefix);
+    }
+
+    public function addProxy($country)
+    {
+        $proxy = $this->getProxy($country);
         $this->procBuilder->setPrefix(
             array_merge(
-                [$this->config->python, $this->config->youtubedl],
-                $this->config->params
+                $this->prefix,
+                ['--proxy', $proxy->protocol.'://'.$proxy->ip.':'.$proxy->port]
             )
         );
+    }
+
+    private function getProxy($country = null)
+    {
+        $proxyProcBuilder = new ProcessBuilder(
+            ['./node_modules/.bin/proxy-lists', 'getProxies', '--stdout', '-F', 'csv']
+        );
+        if (isset($country)) {
+            $proxyProcBuilder->add('-c');
+            $proxyProcBuilder->add($country);
+        }
+        $this->proxyProcess = $proxyProcBuilder->getProcess();
+        $this->proxyList = [];
+        $this->proxyProcess->run([$this, 'getProxyListBuffer']);
+        if (isset($this->proxyList[0])) {
+            $proxy = explode(',', $this->proxyList[0]);
+
+            return new Proxy($proxy[1], $proxy[2], $proxy[4]);
+        } else {
+            throw new \Exception("Couldn't find a proxy");
+        }
+    }
+
+    public function getProxyListBuffer($type, $buffer)
+    {
+        if ($type !== Process::ERR) {
+            if ($buffer != 'source,ipAddress,port,country,protocols,anonymityLevel'.PHP_EOL) {
+                $this->proxyList = explode(PHP_EOL, trim($buffer));
+                $this->proxyProcess->stop();
+            }
+        }
     }
 
     /**

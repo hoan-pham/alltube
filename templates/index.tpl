@@ -23,6 +23,12 @@
                     Audio only (MP3)</label></p>
             </div>
         {/if}
+        <label for="country">Spoof country</label>
+        <select name="country" id="country">
+            <option></option>
+            <option value="fr">France</option>
+            <option value="uk">United Kingdom</option>
+        </select>
     </div>
     </form>
     <a class="combatiblelink" href="{path_for name="extractors"}">See all supported websites</a>

@@ -246,6 +246,9 @@ class FrontController
     public function video(Request $request, Response $response)
     {
         $params = $request->getQueryParams();
+        if (isset($params['country']) && !empty($params['country'])) {
+            $this->download->addProxy($params['country']);
+        }
         if (isset($params['url'])) {
             $password = $request->getParam('password');
             if (isset($password)) {
