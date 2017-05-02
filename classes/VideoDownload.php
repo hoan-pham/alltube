@@ -5,7 +5,6 @@
 
 namespace Alltube;
 
-use Chain\Chain;
 use Symfony\Component\Process\ProcessBuilder;
 
 /**
@@ -192,19 +191,41 @@ class VideoDownload
      *
      * @return ProcessBuilder
      */
-    private function addOptionsToRtmpProcess(ProcessBuilder $builder, $video)
+    private function addOptionsToRtmpProcess(ProcessBuilder $builder, $video, $avconv = false)
     {
-        foreach ([
-            'url'           => 'rtmp',
-            'webpage_url'   => 'pageUrl',
-            'player_url'    => 'swfVfy',
-            'flash_version' => 'flashVer',
-            'play_path'     => 'playpath',
-            'app'           => 'app',
-        ] as $property => $option) {
+        if ($avconv) {
+            $properties = [
+                'url'           => '-rtmp_tcurl',
+                'webpage_url'   => '-rtmp_pageurl',
+                'player_url'    => '-rtmp_swfverify',
+                'flash_version' => '-rtmp_flashver',
+                'play_path'     => '-rtmp_playpath',
+                'app'           => '-rtmp_app',
+            ];
+        } else {
+            $properties = [
+                'url'           => '--rtmp',
+                'webpage_url'   => '--pageUrl',
+                'player_url'    => '--swfVfy',
+                'flash_version' => '--flashVer',
+                'play_path'     => '--playpath',
+                'app'           => '--app',
+            ];
+        }
+        foreach ($properties as $property => $option) {
             if (isset($video->{$property})) {
-                $builder->add('--'.$option);
+                $builder->add($option);
                 $builder->add($video->{$property});
+            }
+        }
+        if (isset($video->rtmp_conn)) {
+            foreach ($video->rtmp_conn as $conn) {
+                if ($avconv) {
+                    $builder->add('-rtmp_conn');
+                } else {
+                    $builder->add('--conn');
+                }
+                $builder->add($conn);
             }
         }
 
@@ -230,12 +251,6 @@ class VideoDownload
             ]
         );
         $builder = $this->addOptionsToRtmpProcess($builder, $video);
-        if (isset($video->rtmp_conn)) {
-            foreach ($video->rtmp_conn as $conn) {
-                $builder->add('--conn');
-                $builder->add($conn);
-            }
-        }
 
         return $builder->getProcess();
     }
@@ -247,7 +262,7 @@ class VideoDownload
      *
      * @return \Symfony\Component\Process\Process Process
      */
-    private function getAvconvMp3Process($url)
+    private function getAvconvMp3Process($video, $rtmp = false)
     {
         if (!shell_exec('which '.$this->config->avconv)) {
             throw(new \Exception('Can\'t find avconv or ffmpeg'));
@@ -259,12 +274,15 @@ class VideoDownload
                 '-v', 'quiet',
                 //Vimeo needs a correct user-agent
                 '-user-agent', $this->getProp(null, null, 'dump-user-agent'),
-                '-i', $url,
+                '-i', $video->url,
                 '-f', 'mp3',
                 '-vn',
                 'pipe:1',
             ]
         );
+        if ($rtmp) {
+            $builder = $this->addOptionsToRtmpProcess($builder, $video, true);
+        }
 
         return $builder->getProcess();
     }
@@ -286,9 +304,9 @@ class VideoDownload
         }
 
         if (parse_url($video->url, PHP_URL_SCHEME) == 'rtmp') {
-            $process = $this->getRtmpProcess($video);
-            $chain = new Chain($process);
-            $chain->add('|', $this->getAvconvMp3Process('-'));
+            $avconvProc = $this->getAvconvMp3Process($video, true);
+            dump($avconvProc->getCommandLine());
+            die;
 
             return popen($chain->getProcess()->getCommandLine(), 'r');
         } else {
