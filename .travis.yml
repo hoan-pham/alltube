@@ -7,7 +7,7 @@ addons:
             - language-pack-fr
 install:
     - composer install
-script: vendor/bin/phpunit
+script: composer run youtube-dl -- "https://twitter.com/verge/status/813055465324056576/video/1" -v
 after_success:
     - bash <(curl -s https://codecov.io/bash)
 before_deploy:
